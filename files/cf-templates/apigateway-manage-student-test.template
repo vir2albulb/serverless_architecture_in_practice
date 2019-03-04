@@ -1,0 +1,833 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Deploys a API Gateway with Lambda to manage student test",
+  "Parameters": {
+    "BucketName": {
+       "Description": "AWS S3 bucket name with CloudFormation templates",
+       "Type": "String",
+       "Default": "cf-templates-trainings"
+     },
+    "UploadStudentTestBucketKey": {
+      "Description": "AWS S3 key that points to the Lambda zip package",
+      "Type": "String",
+      "Default": "lambda/lambda-upload-student-test.zip"
+    },
+    "UploadStudentTestHandler": {
+      "Description": "The Lambda handler function",
+      "Type": "String",
+      "Default": "lambda-upload-student-test.lambda_handler"
+    },
+    "GetStudentTestsBucketKey": {
+      "Description": "AWS S3 key that points to the Lambda zip package",
+      "Type": "String",
+      "Default": "lambda/lambda-get-student-tests.zip"
+    },
+    "GetStudentTestsHandler": {
+      "Description": "The Lambda handler function",
+      "Type": "String",
+      "Default": "lambda-get-student-tests.lambda_handler"
+    },
+    "GetStudentTestBucketKey": {
+      "Description": "AWS S3 key that points to the Lambda zip package",
+      "Type": "String",
+      "Default": "lambda/lambda-get-student-test.zip"
+    },
+    "GetStudentTestHandler": {
+      "Description": "The Lambda handler function",
+      "Type": "String",
+      "Default": "lambda-get-student-test.lambda_handler"
+    },
+    "TargetUploadBucketName": {
+      "Description": "Target AWS S3 bucket to upload tests to",
+      "Type": "String",
+      "Default": "trainings-tests"
+    },
+    "StudentsListS3BucketKey": {
+      "Description": "AWS S3 key that points to the students list",
+      "Type": "String",
+      "Default": "studentsList.json"
+    },
+    "QuestionsS3BucketKey": {
+      "Description": "AWS S3 key that points to the test questions (relative per each test)",
+      "Type": "String",
+      "Default": "questions.json"
+    },
+    "StudentAnswersS3BucketKey": {
+      "Description": "AWS S3 key that points to the student answers to test questions (relative per each test)",
+      "Type": "String",
+      "Default": "testResult.json"
+    }
+  },
+  "Resources": {
+    "TargetUploadS3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [{
+            "ServerSideEncryptionByDefault": {
+              "SSEAlgorithm": "AES256"
+            }
+          }]
+        },
+        "BucketName": {
+          "Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" },{ "Ref" : "AWS::Region" }]]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      }
+    },
+    "UploadStudentTestLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "UploadStudentTestPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "UploadStudentTestPolicy",
+        "Roles": [{ "Ref": "UploadStudentTestLambdaRole" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement":[
+            {
+                "Action": [
+                    "s3:PutObject"
+                ],
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/*/*/*/", { "Ref": "StudentAnswersS3BucketKey" } ]]}
+            },
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                    {"Fn::Join": ["", ["arn:aws:logs:", { "Ref" : "AWS::Region"  }, ":", { "Ref" : "AWS::AccountId" }, ":log-group:/aws/lambda/", { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "UploadStudentTestHandler" } ] } ] }, ":*" ] ]}
+                ]
+            }
+          ]
+        }
+      }
+    },
+    "GetStudentTestsLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "GetStudentTestsPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "GetStudentTestsPolicy",
+        "Roles": [{ "Ref": "GetStudentTestsLambdaRole" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement":[
+            {
+                "Action": [
+                    "s3:ListBucket"
+                ],
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region" } ]]} ]]}
+            },
+            {
+                "Action": [
+                    "s3:GetObject"
+                ],
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/", { "Ref" : "StudentsListS3BucketKey" } ]]}
+            },
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                    {"Fn::Join": ["", ["arn:aws:logs:", { "Ref" : "AWS::Region"  }, ":", { "Ref" : "AWS::AccountId" }, ":log-group:/aws/lambda/", { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "GetStudentTestsHandler" } ] } ] }, ":*" ] ]}
+                ]
+            }
+          ]
+        }
+      }
+    },
+    "GetStudentTestLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "GetStudentTestPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "GetStudentTestPolicy",
+        "Roles": [{ "Ref": "GetStudentTestLambdaRole" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement":[
+            {
+                "Action": [
+                    "s3:GetObject"
+                ],
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/*/*/", { "Ref": "QuestionsS3BucketKey" } ]]}
+            },
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                    {"Fn::Join": ["", ["arn:aws:logs:", { "Ref" : "AWS::Region"  }, ":", { "Ref" : "AWS::AccountId" }, ":log-group:/aws/lambda/", { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "GetStudentTestHandler" } ] } ] }, ":*" ] ]}
+                ]
+            }
+          ]
+        }
+      }
+    },
+    "ManageStudentTestCloudWatchLogsRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "apigateway.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ManageStudentTestLogsPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents",
+                    "logs:GetLogEvents",
+                    "logs:FilterLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "UploadStudentTestLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": {"Ref": "UploadStudentTestHandler"},
+        "Role": {"Fn::GetAtt": ["UploadStudentTestLambdaRole","Arn"]},
+        "Code": {
+          "S3Bucket": { "Ref": "BucketName" },
+          "S3Key": { "Ref": "UploadStudentTestBucketKey" }
+        },
+        "Environment" : {
+          "Variables": {
+            "targetBucketName":  { "Ref": "TargetUploadS3Bucket" },
+            "studentAnswersKeyPath": { "Ref": "StudentAnswersS3BucketKey" }
+          }
+        },
+        "Runtime": "python3.6",
+        "Timeout": "60",
+        "FunctionName": { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "UploadStudentTestHandler" } ] } ] },
+        "Description": "Upload student test Lambda function"
+      }
+    },
+    "UploadStudentTestLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": ["UploadStudentTestLambdaFunction","Arn"]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": ["",["arn:aws:execute-api:",{"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"},":",{"Ref": "ManageStudentTestApi"},"/*"]]
+        }
+      }
+    },
+    "UploadStudentTestLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "Properties": {
+            "LogGroupName" : { "Fn::Join" : [ "", [ "/aws/lambda/", { "Ref": "UploadStudentTestLambdaFunction" } ] ] },
+            "RetentionInDays": 14
+        },
+        "DeletionPolicy": "Delete",
+        "DependsOn": "UploadStudentTestLambdaFunction"
+    },
+    "GetStudentTestsLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": {"Ref": "GetStudentTestsHandler"},
+        "Role": {"Fn::GetAtt": ["GetStudentTestsLambdaRole","Arn"]},
+        "Code": {
+          "S3Bucket": { "Ref": "BucketName" },
+          "S3Key": { "Ref": "GetStudentTestsBucketKey" }
+        },
+        "Environment" : {
+          "Variables": {
+            "targetBucketName":  { "Ref": "TargetUploadS3Bucket" },
+            "studentsListKeyPath":  { "Ref": "StudentsListS3BucketKey" }
+          }
+        },
+        "Runtime": "python3.6",
+        "Timeout": "30",
+        "FunctionName": { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "GetStudentTestsHandler" } ] } ] },
+        "Description": "Get student tests Lambda function"
+      }
+    },
+    "GetStudentTestsLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": ["GetStudentTestsLambdaFunction","Arn"]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": ["",["arn:aws:execute-api:",{"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"},":",{"Ref": "ManageStudentTestApi"},"/*"]]
+        }
+      }
+    },
+    "GetStudentTestsLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "Properties": {
+            "LogGroupName" : { "Fn::Join" : [ "", [ "/aws/lambda/", { "Ref": "GetStudentTestsLambdaFunction" } ] ] },
+            "RetentionInDays": 14
+        },
+        "DeletionPolicy": "Delete",
+        "DependsOn": "GetStudentTestsLambdaFunction"
+    },
+    "GetStudentTestLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": {"Ref": "GetStudentTestHandler"},
+        "Role": {"Fn::GetAtt": ["GetStudentTestLambdaRole","Arn"]},
+        "Code": {
+          "S3Bucket": { "Ref": "BucketName" },
+          "S3Key": { "Ref": "GetStudentTestBucketKey" }
+        },
+        "Environment" : {
+          "Variables": {
+            "targetBucketName":  { "Ref": "TargetUploadS3Bucket" },
+            "questionsKeyPath":  { "Ref": "QuestionsS3BucketKey" }
+          }
+        },
+        "Runtime": "python3.6",
+        "Timeout": "30",
+        "FunctionName": { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "GetStudentTestHandler" } ] } ] },
+        "Description": "Get student test Lambda function"
+      }
+    },
+    "GetStudentTestLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": ["GetStudentTestLambdaFunction","Arn"]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": ["",["arn:aws:execute-api:",{"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"},":",{"Ref": "ManageStudentTestApi"},"/*"]]
+        }
+      }
+    },
+    "GetStudentTestLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "Properties": {
+            "LogGroupName" : { "Fn::Join" : [ "", [ "/aws/lambda/", { "Ref": "GetStudentTestLambdaFunction" } ] ] },
+            "RetentionInDays": 14
+        },
+        "DeletionPolicy": "Delete",
+        "DependsOn": "GetStudentTestLambdaFunction"
+    },
+    "ManageStudentTestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "Upload student test API",
+        "Description": "API used to upload student test",
+        "FailOnWarnings": true
+      }
+    },
+    "ManageStudentTestRequestValidator": {
+      "Type": "AWS::ApiGateway::RequestValidator",
+      "Properties": {
+          "Name": "manage-student-test-request-validator",
+          "RestApiId": { "Ref": "ManageStudentTestApi" },
+          "ValidateRequestBody": "true",
+          "ValidateRequestParameters": "true"
+      }
+    },
+    "ManageStudentTestAccount": {
+      "Type": "AWS::ApiGateway::Account",
+      "Properties": {
+        "CloudWatchRoleArn": {
+          "Fn::GetAtt": ["ManageStudentTestCloudWatchLogsRole","Arn"]
+        }
+      },
+      "DependsOn": [
+        "ManageStudentTestCloudWatchLogsRole"
+      ]
+    },
+    "ManageStudentTestStage": {
+      "DependsOn": [
+        "ManageStudentTestAccount"
+      ],
+      "Type": "AWS::ApiGateway::Stage",
+      "Properties": {
+        "DeploymentId": {"Ref": "ManageStudentTestDeployment"},
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "StageName": "api"
+      }
+    },
+    "ManageStudentTestDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "DependsOn": [
+        "GetStudentTestsMethodPOST",
+        "GetStudentTestMethodGET",
+        "UploadStudentTestMethodPOST"
+      ],
+      "Properties": {
+        "RestApiId": {"Ref": "ManageStudentTestApi"}
+      }
+    },
+    "ManageStudentTestV1Resource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "ParentId": {"Fn::GetAtt": ["ManageStudentTestApi","RootResourceId"]},
+        "PathPart": "v1"
+      }
+    },
+    "ManageStudentTestsResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "ParentId": {"Ref": "ManageStudentTestV1Resource"},
+        "PathPart": "tests"
+      }
+    },
+    "ManageStudentTestResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "ParentId": {"Ref": "ManageStudentTestV1Resource"},
+        "PathPart": "test"
+      }
+    },
+    "GetStudentTestsMethodPOSTModel": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "RestApiId": { "Ref": "ManageStudentTestApi" },
+        "ContentType": "application/json",
+        "Description": "Schema for get student tests POST method",
+        "Name": "GetStudentTestsMethodPostModel",
+        "Schema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "title": "GetStudentTestsMethodPostModel",
+          "type": "object",
+          "properties": {
+            "studentId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "GetStudentTestsMethodPOST": {
+      "DependsOn": "GetStudentTestsLambdaPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "ApiKeyRequired" : "True",
+        "HttpMethod": "POST",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {
+            "Fn::Join": [
+              "",
+              ["arn:aws:apigateway:",{"Ref": "AWS::Region"},":lambda:path/2015-03-31/functions/",{"Fn::GetAtt": ["GetStudentTestsLambdaFunction","Arn"]},"/invocations"]
+            ]
+          },
+          "IntegrationResponses": [
+            {
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": 200
+            }
+          ],
+          "RequestTemplates": {
+            "application/json": {"Fn::Join": ["", [
+              "{\n",
+              "  \"studentId\": \"method.request.body.studentId\"\n",
+              "}"
+            ]]}
+          }
+        },
+        "RequestModels": { "application/json": { "Ref": "GetStudentTestsMethodPOSTModel" } },
+        "RequestValidatorId": { "Ref": "ManageStudentTestRequestValidator" },
+        "ResourceId": {"Ref": "ManageStudentTestsResource"},
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseModels": {"application/json": "Empty"},
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+      }
+    },
+    "GetStudentTestMethodGET": {
+      "DependsOn": "GetStudentTestLambdaPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "ApiKeyRequired" : "True",
+        "HttpMethod": "GET",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {
+            "Fn::Join": [
+              "",
+              ["arn:aws:apigateway:",{"Ref": "AWS::Region"},":lambda:path/2015-03-31/functions/",{"Fn::GetAtt": ["GetStudentTestLambdaFunction","Arn"]},"/invocations"]
+            ]
+          },
+          "IntegrationResponses": [
+            {
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": 200
+            }
+          ],
+          "RequestTemplates": {
+            "application/json": {"Fn::Join": ["", [
+              "{\n",
+              "  \"subjectName\": \"$input.params('subjectName')\",\n",
+              "  \"testId\": \"$input.params('testId')\"\n",
+              "}"
+            ]]}
+          }
+        },
+        "RequestValidatorId": { "Ref": "ManageStudentTestRequestValidator" },
+        "ResourceId": {"Ref": "ManageStudentTestResource"},
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseModels": {"application/json": "Empty"},
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": false,
+              "method.response.header.Access-Control-Allow-Methods": false,
+              "method.response.header.Access-Control-Allow-Origin": false
+            }
+          }
+        ],
+        "RequestParameters": {
+          "method.request.querystring.subjectName": true,
+          "method.request.querystring.testId": true
+        }
+      }
+    },
+    "UploadStudentTestMethodPOSTModel": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "RestApiId": { "Ref": "ManageStudentTestApi" },
+        "ContentType": "application/json",
+        "Description": "Schema for upload student test POST method",
+        "Name": "UploadStudentTestMethodPostModel",
+        "Schema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "title": "UploadStudentTestMethodPostModel",
+          "type": "object",
+          "properties": {
+            "subjectName": { "type": "string" },
+            "testId": { "type": "string" },
+            "studentId": { "type": "string" },
+            "testResult": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "questionId": { "type": "string" },
+                  "answer": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "UploadStudentTestMethodPOST": {
+      "DependsOn": "UploadStudentTestLambdaPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "ApiKeyRequired" : "True",
+        "HttpMethod": "POST",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {
+            "Fn::Join": [
+              "",
+              ["arn:aws:apigateway:",{"Ref": "AWS::Region"},":lambda:path/2015-03-31/functions/",{"Fn::GetAtt": ["UploadStudentTestLambdaFunction","Arn"]},"/invocations"]
+            ]
+          },
+          "IntegrationResponses": [
+            {
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'POST'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              },
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": 200
+            }
+          ],
+          "RequestTemplates": {
+            "application/json": {"Fn::Join": ["", [
+              "#set($inputRoot = $input.path('$'))\n",
+              "{\n",
+              "  \"subjectName\": \"$inputRoot.subjectName\",\n",
+              "  \"testId\": \"$inputRoot.testId\",\n",
+              "  \"studentId\": \"$inputRoot.studentId\",\n",
+              "  \"testResult\": [\n",
+              "#foreach($elem in $inputRoot.testResult)\n",
+              "     {\n",
+              "       \"questionId\": \"$elem.questionId\",\n",
+              "       \"answer\": \"$elem.answer\"\n",
+              "     }#if($foreach.hasNext),#end\n",
+              "#end\n",
+              "   ]\n",
+              "}"
+            ]]}
+          }
+        },
+        "RequestModels": { "application/json": { "Ref": "UploadStudentTestMethodPOSTModel" } },
+        "RequestValidatorId": { "Ref": "ManageStudentTestRequestValidator" },
+        "ResourceId": {"Ref": "ManageStudentTestResource"},
+        "RestApiId": {"Ref": "ManageStudentTestApi"},
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseModels": {"application/json": "Empty"},
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+      }
+    },
+    "ManageStudentTestTokenApiKey": {
+      "Type": "AWS::ApiGateway::ApiKey",
+      "Properties": {
+        "Name": "manage-student-test-01",
+        "Description": "CloudFormation API Key - Upload Student Test",
+        "Enabled": "true",
+        "StageKeys": [{
+           "RestApiId": {"Ref": "ManageStudentTestApi"},
+           "StageName" : { "Ref" : "ManageStudentTestStage" }
+        }]
+      }
+    },
+    "ManageStudentTestUsagePlan" : {
+      "Type" : "AWS::ApiGateway::UsagePlan",
+      "Properties" : {
+        "ApiStages" : [
+          {
+            "ApiId" : { "Ref": "ManageStudentTestApi" },
+            "Stage" : { "Ref" : "ManageStudentTestStage" }
+          }
+        ],
+        "Description" : "Upload Student Test usage plan",
+        "Throttle" : {
+          "BurstLimit" : 10,
+          "RateLimit" : 6
+        },
+        "UsagePlanName" : "upload-student-test-usage-plan"
+      },
+      "DependsOn": [
+        "ManageStudentTestApi"
+      ]
+    },
+    "ManageStudentTestUsagePlanKey" : {
+      "Type": "AWS::ApiGateway::UsagePlanKey",
+      "Properties": {
+        "KeyId" : {"Ref" : "ManageStudentTestTokenApiKey"},
+        "KeyType" : "API_KEY",
+        "UsagePlanId" : {"Ref" : "ManageStudentTestUsagePlan"}
+      }
+    }
+  },
+  "Outputs": {
+    "UploadStudentTestLambdaRole": {
+      "Value": {
+        "Ref": "UploadStudentTestLambdaRole"
+      }
+    },
+    "UploadStudentTestLambdaRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "UploadStudentTestLambdaRole",
+          "Arn"
+        ]
+      }
+    },
+    "GetStudentTestsLambdaRole": {
+      "Value": {
+        "Ref": "GetStudentTestsLambdaRole"
+      }
+    },
+    "GetStudentTestsLambdaRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "GetStudentTestsLambdaRole",
+          "Arn"
+        ]
+      }
+    },
+    "GetStudentTestLambdaRole": {
+      "Value": {
+        "Ref": "GetStudentTestLambdaRole"
+      }
+    },
+    "GetStudentTestLambdaRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "GetStudentTestLambdaRole",
+          "Arn"
+        ]
+      }
+    },
+    "UploadStudentTestFunctionLogicalId": {
+      "Description": "The Logical ID of the function",
+      "Value": {
+        "Ref": "UploadStudentTestLambdaFunction"
+      }
+    },
+    "UploadStudentTestFunctionArn": {
+      "Description": "The arn of the function",
+      "Value": {
+        "Fn::GetAtt": [
+          "UploadStudentTestLambdaFunction",
+          "Arn"
+        ]
+      }
+    },
+    "GetStudentTestsFunctionLogicalId": {
+      "Description": "The Logical ID of the function",
+      "Value": {
+        "Ref": "GetStudentTestsLambdaFunction"
+      }
+    },
+    "GetStudentTestsFunctionArn": {
+      "Description": "The arn of the function",
+      "Value": {
+        "Fn::GetAtt": [
+          "GetStudentTestsLambdaFunction",
+          "Arn"
+        ]
+      }
+    },
+    "GetStudentTestFunctionLogicalId": {
+      "Description": "The Logical ID of the function",
+      "Value": {
+        "Ref": "GetStudentTestLambdaFunction"
+      }
+    },
+    "GetStudentTestFunctionArn": {
+      "Description": "The arn of the function",
+      "Value": {
+        "Fn::GetAtt": [
+          "GetStudentTestLambdaFunction",
+          "Arn"
+        ]
+      }
+    },
+    "UploadS3BucketName": {
+      "Description": "S3 bucket name used to upload test results",
+      "Value": {
+        "Ref": "TargetUploadS3Bucket"
+      }
+    }
+  }
+}

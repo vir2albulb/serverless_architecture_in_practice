@@ -1,0 +1,8 @@
+---
+# Create S3 bucket based on parameters
+- name: Create S3 bucket for CloudFormation templates | {{ cfTemplatesBucketName }}
+  s3_bucket:
+    name: "{{ cfTemplatesBucketName }}"
+    versioning: yes
+    state: present
+    region: "{{ awsRegion }}"

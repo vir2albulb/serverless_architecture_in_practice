@@ -1,0 +1,69 @@
+---
+- name: Register AWS Lambda code to upload
+  set_fact:
+    generateStudentTestScoreCode: "lambda-generate-student-test-score.py"
+
+- name: Create temporary directory to create deployment bundles
+  tempfile:
+    state: directory
+    suffix: lambdaCodes
+  register: codesTmpDir
+
+- name: Register temporary directory path and archive names
+  set_fact:
+    tmpDir: "{{ codesTmpDir.path }}"
+    generateStudentTestScoreArchive: "{{ generateStudentTestScoreCode.split('.')[0] }}.zip"
+
+- name: Create ZIP archive | {{ generateStudentTestScoreCode }}
+  archive:
+    path: "{{ baseLambdaPath }}/{{ generateStudentTestScoreCode }}"
+    dest: "{{ tmpDir }}/{{ generateStudentTestScoreArchive }}"
+    format: zip
+
+- name: Put ZIP archive to S3 bucket | {{ generateStudentTestScoreArchive }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseLambdaPath.split('/')[1] }}/{{ generateStudentTestScoreArchive }}"
+    src: "{{ tmpDir }}/{{ generateStudentTestScoreArchive }}"
+    mode: put
+  register: generateStudentTestScoreS3url
+
+- name: Remove temporary directory
+  file:
+    path: "{{ tmpDir }}"
+    state: absent
+
+- name: Register CloudFormtion template name
+  set_fact:
+    templateName: "lambda-generate-student-test-score.template"
+
+- name: Put CloudFormation template to S3 bucket | {{ templateName }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseCfTemplatesPath.split('/')[1] }}/{{ templateName }}"
+    src: "{{ baseCfTemplatesPath }}/{{ templateName }}"
+    mode: put
+  register: cfTemplateS3url
+
+- name: Create AWS CloudFormation stack | {{ lambdaDeploymentStackName }}
+  cloudformation:
+    stack_name: "{{ lambdaDeploymentStackName }}"
+    state: present
+    region:  "{{ awsRegion }}"
+    template_url: "{{ cfTemplateS3url.url.split(\"?\")[0] }}"
+    termination_protection: yes
+    template_parameters:
+      BucketName: "{{ cfTemplatesBucketName }}"
+      GenerateStudentTestScoreBucketKey: "{{ baseLambdaPath.split('/')[1] }}/{{ generateStudentTestScoreArchive }}"
+      GenerateStudentTestScoreHandler: "{{ generateStudentTestScoreCode.split('.')[0] }}.lambda_handler"
+      SesRegion: "{{ sesRegion }}"
+      TargetUploadBucketName: "{{ targetUploadBucketPrefix }}"
+      StudentsListS3BucketKey: "{{ studentsListS3BucketKey }}"
+      QuestionsKeyBucketKey: "{{ questionsKeyS3BucketKey }}"
+      StudentAnswersBucketKey: "{{ studentAnswersS3BucketKey }}"
+      StudentScoreBucketKey: "{{ studentScoreS3BucketKey }}"
+      MailSender: "{{ emailSender }}"
+      TrainerEmail: "{{ trainerEmail }}"
+    tags:
+      Stack: "{{ templateName.split('.')[0] | lower }}"
+      Service: "{{ templateName.split('-')[0] }}"

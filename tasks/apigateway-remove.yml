@@ -1,0 +1,12 @@
+---
+- name: Update AWS CloudFormation stack terminatin protection | {{ apiGatewayDeploymentStackName }}
+  command: |
+    aws cloudformation update-termination-protection --no-enable-termination-protection \
+    --stack-name "{{ apiGatewayDeploymentStackName }}" --region "{{ awsRegion }}"
+  when: apiGatewayStackStatus['ansible_facts']['cloudformation'][apiGatewayDeploymentStackName] is defined
+
+- name: Remove AWS CloudFormation stack | {{ apiGatewayDeploymentStackName }}
+  cloudformation:
+    stack_name: "{{ apiGatewayDeploymentStackName }}"
+    state: absent
+    region:  "{{ awsRegion }}"

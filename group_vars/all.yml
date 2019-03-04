@@ -1,0 +1,12 @@
+---
+awsRegion: eu-central-1
+cfTemplatesBucketName: cf-templates-trainings-{{ awsRegion }}
+targetUploadBucketPrefix: trainings-tests
+studentsListS3BucketKey: studentsList.json
+questionsS3BucketKey: questions.json
+questionsKeyS3BucketKey: questionsKey.json
+studentAnswersS3BucketKey: testResult.json
+studentScoreS3BucketKey: score.json
+emailSender: no-reply@examplemail.com
+trainerEmail: trainer@examplemail.com
+sesRegion: eu-west-1

@@ -1,0 +1,228 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Deploys a Lambda function to generate student scores",
+  "Parameters": {
+     "BucketName": {
+      "Description": "S3 bucket name with CloudFormation templates",
+      "Type": "String",
+      "Default": "cf-templates-trainings"
+    },
+    "GenerateStudentTestScoreBucketKey": {
+      "Description": "AWS S3 key that points to the Lambda zip package",
+      "Type": "String",
+      "Default": "lambda/lambda-generate-student-test-score.zip"
+    },
+    "GenerateStudentTestScoreHandler": {
+      "Description": "The handler function",
+      "Type": "String",
+      "Default": "lambda-generate-student-test-score.lambda_handler"
+    },
+    "SesRegion": {
+      "Description": "SES region used to send emails",
+      "Type": "String",
+      "Default": "eu-west-1"
+    },
+    "TargetUploadBucketName": {
+      "Description": "Target AWS S3 bucket to upload tests to",
+      "Type": "String",
+      "Default": "trainings-tests"
+    },
+    "StudentsListS3BucketKey": {
+      "Description": "AWS S3 key that points to the students list",
+      "Type": "String",
+      "Default": "studentsList.json"
+    },
+    "QuestionsKeyBucketKey": {
+      "Description": "AWS S3 key that points to the test questions (relative per each test)",
+      "Type": "String",
+      "Default": "questionsKey.json"
+    },
+    "StudentAnswersBucketKey": {
+      "Description": "AWS S3 key that points to the student answers to test questions (relative per each test)",
+      "Type": "String",
+      "Default": "testResult.json"
+    },
+    "StudentScoreBucketKey": {
+      "Description": "AWS S3 key that points to the student score to tests (relative per each test)",
+      "Type": "String",
+      "Default": "score.json"
+    },
+    "MailSender": {
+      "Description": "Email address registered with AWS SES and used to send emails",
+      "Type": "String",
+      "Default": "no-reply@mysuperemail.com"
+    },
+    "TrainerEmail": {
+      "Description": "Email address registered with AWS SES",
+      "Type": "String",
+      "Default": "trainer@mysuperemail.com"
+    }
+  },
+  "Resources": {
+    "LambdaGenerateStudentTestScoreRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "LambdaGenerateStudentTestScorePolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "LambdaGenerateStudentTestScorePolicy",
+        "Roles": [
+          {"Ref": "LambdaGenerateStudentTestScoreRole"}
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement":[
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                    {"Fn::Join": ["", ["arn:aws:logs:", { "Ref" : "AWS::Region"  }, ":", { "Ref" : "AWS::AccountId" }, ":log-group:/aws/lambda/", { "Fn::Select" : [ "0", { "Fn::Split" : [ ".", { "Ref": "GenerateStudentTestScoreHandler" } ] } ] }, ":*" ] ]}
+                ]
+            },
+            {
+                "Action": "s3:ListBucket",
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region" } ]]} ]]}
+            },
+            {
+                "Action": "s3:GetObject",
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/", { "Ref" : "StudentsListS3BucketKey" } ]]}
+            },
+            {
+                "Action": "s3:GetObject",
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/*/*/", { "Ref": "QuestionsKeyBucketKey" } ]]}
+            },
+            {
+                "Action": "s3:GetObject",
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/*/*/*/", { "Ref": "StudentAnswersBucketKey" } ]]}
+            },
+            {
+                "Action": "s3:PutObject",
+                "Effect": "Allow",
+                "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Fn::Join": ["-", [{ "Ref" : "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]}, "/*/*/*/", { "Ref": "StudentScoreBucketKey" } ]]}
+            },
+            {
+                "Action": "ses:SendRawEmail",
+                "Effect": "Allow",
+                "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "GenerateStudentTestScoreLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": "LambdaGenerateStudentTestScoreRole",
+      "Properties": {
+        "Handler": {"Ref": "GenerateStudentTestScoreHandler"},
+        "Role": {"Fn::GetAtt": ["LambdaGenerateStudentTestScoreRole","Arn"]},
+        "Code": {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": {"Ref": "GenerateStudentTestScoreBucketKey"}
+        },
+        "Environment" : {
+          "Variables": {
+            "targetBucketName":  {"Fn::Join": ["-", [ { "Ref": "TargetUploadBucketName" }, { "Ref" : "AWS::Region"  } ]]},
+            "sesRegion": {"Ref": "SesRegion" },
+            "emailSender": {"Ref": "MailSender" },
+            "trainerEmail": {"Ref": "TrainerEmail" },
+            "studentsListKeyPath": {"Ref": "StudentsListS3BucketKey" },
+            "questionsKeyPath": {"Ref": "QuestionsKeyBucketKey" },
+            "testResult": {"Ref": "StudentAnswersBucketKey" },
+            "scoreKey": {"Ref": "StudentScoreBucketKey" }
+          }
+        },
+        "Runtime": "python3.6",
+        "Timeout": "300",
+        "FunctionName": "lambda-generate-student-test-score",
+        "Description": "Lambda Function to generate students tests scores"
+      }
+    },
+    "GenerateStudentTestScoreLambdaScheduledRule": {
+      "Type": "AWS::Events::Rule",
+      "DependsOn": "GenerateStudentTestScoreLambdaFunction",
+      "Properties": {
+        "Description": "Lambda S3 upload tracker schedule",
+        "ScheduleExpression": "cron(0 21 ? * 3 *)",
+        "State": "ENABLED",
+        "Targets": [{
+          "Arn": { "Fn::GetAtt": ["GenerateStudentTestScoreLambdaFunction", "Arn"] },
+          "Id": {"Ref": "GenerateStudentTestScoreLambdaFunction" }
+        }]
+      }
+    },
+    "PermissionForGenerateStudentTestScoreToInvokeLambda": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": "GenerateStudentTestScoreLambdaFunction",
+      "Properties": {
+        "FunctionName": { "Ref": "GenerateStudentTestScoreLambdaFunction" },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": { "Fn::GetAtt": ["GenerateStudentTestScoreLambdaScheduledRule", "Arn"] }
+      }
+    },
+    "GenerateStudentTestScoreLambdaLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "DependsOn": "GenerateStudentTestScoreLambdaFunction",
+        "Properties": {
+            "LogGroupName": {"Fn::Join": ["", ["/aws/lambda/", {"Ref": "GenerateStudentTestScoreLambdaFunction"}]]},
+            "RetentionInDays": 14
+        }
+    }
+  },
+  "Outputs": {
+    "GenerateStudentTestScoreLambdaRole": {
+      "Value": {
+        "Ref": "LambdaGenerateStudentTestScoreRole"
+      }
+    },
+    "GenerateStudentTestScoreLambdaRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "LambdaGenerateStudentTestScoreRole",
+          "Arn"
+        ]
+      }
+    },
+    "FunctionLogicalId": {
+      "Description": "The Logical ID of the function",
+      "Value": {
+        "Ref": "GenerateStudentTestScoreLambdaFunction"
+      }
+    },
+    "FunctionArn": {
+      "Description": "The arn of the function",
+      "Value": {
+        "Fn::GetAtt": [
+          "GenerateStudentTestScoreLambdaFunction",
+          "Arn"
+        ]
+      }
+    }
+  }
+}

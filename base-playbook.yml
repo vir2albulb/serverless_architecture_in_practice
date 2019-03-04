@@ -1,0 +1,43 @@
+---
+# This Playbook deploys AWS API Gateway endpoints and AWS Lambdas
+- hosts: localhost
+  gather_facts: no
+  tags:
+    - deploy-api-gateway
+  tasks:
+    - include_tasks: "tasks/{{ task }}"
+      with_items:
+        - initialize-variables.yml
+        - s3-create-bucket.yml
+        - apigateway-deploy.yml
+        - lambda-deploy.yml
+      loop_control:
+        loop_var: task
+
+# This Playbook updates list of x and/or (x in (subjects, tests, questions, students))
+- hosts: localhost
+  gather_facts: no
+  tags:
+    - update-subjects-or-students
+  tasks:
+    - include_tasks: "tasks/{{ task }}"
+      with_items:
+        - initialize-variables.yml
+        - s3-prepare-subjects.yml
+      loop_control:
+        loop_var: task
+
+# This Playbook removes AWS API Gateway endpoints and AWS Lambdas
+- hosts: localhost
+  gather_facts: no
+  tags:
+    - remove-api-gateway
+  tasks:
+    - include_tasks: "tasks/{{ task }}"
+      with_items:
+        - initialize-variables.yml
+        - s3-delete-buckets.yml
+        - apigateway-remove.yml
+        - lambda-remove.yml
+      loop_control:
+        loop_var: task

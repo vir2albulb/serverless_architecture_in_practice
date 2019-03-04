@@ -1,0 +1,21 @@
+---
+- fail:
+    msg: "API Gateway {{ apiGatewayDeploymentStackName }} does not exists. Please run deploy-api-gateway.sh script firstly."
+  when: apiGatewayStackStatus['ansible_facts']['cloudformation'][apiGatewayDeploymentStackName] is undefined
+
+- name: Fetch S3 bucket name with uploaded students tests
+  set_fact:
+    targetUploadS3bucketName: "{{ apiGatewayStackStatus['ansible_facts']['cloudformation'][apiGatewayDeploymentStackName]['stack_outputs']['UploadS3BucketName'] }}"
+
+# Delete S3 bucket based on parameters
+- name: Delete S3 buckets
+  s3_bucket:
+    name: "{{ item }}"
+    state: absent
+    region: "{{ awsRegion }}"
+    force: yes
+  with_items:
+    - "{{ cfTemplatesBucketName }}"
+    - "{{ targetUploadS3bucketName }}"
+
+-

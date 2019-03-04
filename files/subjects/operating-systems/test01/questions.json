@@ -1,0 +1,134 @@
+[
+  {
+    "questionId": "1",
+    "question": "What is kernel?",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "kernel is the core component of an operating system"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "kernel is an web application"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "kernel is a web browser"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "none of the mentioned"
+      }
+    ]
+  },
+  {
+    "questionId": "2",
+    "question": "Which one of the following is the characteristic of a multimedia system?",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "high storage"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "high data rates"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "both high storage and high data rates"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "none of the mentioned"
+      }
+    ]
+  },
+  {
+    "questionId": "3",
+    "question": "Which one of the following linux file system does not support journaling feature?",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "ext2"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "ext3"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "ext4"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "none of the mentioned"
+      }
+    ]
+  },
+  {
+    "questionId": "4",
+    "question": "Which one of the following bootloader is not used by linux?",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "GRUB"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "LILO"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "NTLDR"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "none of the mentioned"
+      }
+    ]
+  },
+  {
+    "questionId": "5",
+    "question": "The first process launched by the linux kernel is",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "init process"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "zombie process"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "batch process"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "boot process"
+      }
+    ]
+  },
+  {
+    "questionId": "6",
+    "question": "Which desktop environment is not used in any linux distribution?",
+    "answers": [
+      {
+        "answerId": "a",
+        "answerBody": "gnome"
+      },
+      {
+        "answerId": "b",
+        "answerBody": "kde"
+      },
+      {
+        "answerId": "c",
+        "answerBody": "unity"
+      },
+      {
+        "answerId": "d",
+        "answerBody": "none of the mentioned"
+      }
+    ]
+  }
+]

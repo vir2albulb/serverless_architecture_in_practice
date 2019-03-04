@@ -1,0 +1,12 @@
+---
+- name: Update AWS CloudFormation stack terminatin protection | {{ lambdaDeploymentStackName }}
+  command: |
+    aws cloudformation update-termination-protection --no-enable-termination-protection \
+    --stack-name "{{ lambdaDeploymentStackName }}" --region "{{ awsRegion }}"
+  when: lambdaStackStatus['ansible_facts']['cloudformation'][lambdaDeploymentStackName] is defined
+
+- name: Remove AWS CloudFormation stack | {{ lambdaDeploymentStackName }}
+  cloudformation:
+    stack_name: "{{ lambdaDeploymentStackName }}"
+    state: absent
+    region:  "{{ awsRegion }}"

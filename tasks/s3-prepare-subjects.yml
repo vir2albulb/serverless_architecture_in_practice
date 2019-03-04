@@ -1,0 +1,52 @@
+---
+# Initial check for Api Gateway deployment stack - target upload S3 bucket required
+- fail:
+    msg: "API Gateway {{ apiGatewayDeploymentStackName }} does not exists. Please run deploy-api-gateway.sh script firstly."
+  when: apiGatewayStackStatus['ansible_facts']['cloudformation'][apiGatewayDeploymentStackName] is undefined
+
+- fail:
+    msg: "Lambda {{ lambdaDeploymentStackName }} does not exists. Please run deploy-api-gateway.sh script firstly."
+  when: lambdaStackStatus['ansible_facts']['cloudformation'][lambdaDeploymentStackName] is undefined
+
+- name: Fetch S3 bucket name to upload students tests
+  set_fact:
+    targetUploadS3bucketName: "{{ apiGatewayStackStatus['ansible_facts']['cloudformation'][apiGatewayDeploymentStackName]['stack_outputs']['UploadS3BucketName'] }}"
+
+- name: Get list subjects
+  find:
+    path: "{{ subjectsPath }}"
+    file_type: directory
+  register: subjects
+
+# Create S3 bucket key for each subject
+- name: Create S3 bucket keys as directory based on list of subjects
+  aws_s3:
+    bucket: "{{ targetUploadS3bucketName }}"
+    object: "{{ item.path | replace(subjectsPath, '') }}"
+    mode: create
+    region: "{{ awsRegion }}"
+  with_items: "{{ subjects.files }}"
+
+- name: Upload list of students to S3 bucket
+  aws_s3:
+    bucket: "{{ targetUploadS3bucketName }}"
+    object: "/{{ studentsListS3BucketKey }}"
+    src: "files/{{ studentsListS3BucketKey.split('.')[0] }}/{{ studentsListS3BucketKey }}"
+    mode: put
+
+- name: Get list tests and questions
+  find:
+    path: "{{ subjectsPath }}"
+    file_type: file
+    patterns: questions*.json
+    recurse: yes
+  register: tests
+
+- name: Upload test questions to S3 bucket
+  aws_s3:
+    bucket: "{{ targetUploadS3bucketName }}"
+    object: "{{ item.path | replace(subjectsPath, '') }}"
+    src: "{{ item.path }}"
+    mode: put
+    region: "{{ awsRegion }}"
+  with_items: "{{ tests.files }}"

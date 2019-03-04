@@ -1,0 +1,20 @@
+---
+- name: Define initial variables
+  set_fact:
+    apiGatewayDeploymentStackName: "apigw-{{ targetUploadBucketPrefix }}"
+    lambdaDeploymentStackName: "lambda-{{ targetUploadBucketPrefix }}"
+    baseCfTemplatesPath: files/cf-templates
+    baseLambdaPath: files/lambda
+    subjectsPath: files/subjects
+
+- name: Try to get data about CloudFormation stack {{ apiGatewayDeploymentStackName }}
+  cloudformation_facts:
+    stack_name: "{{ apiGatewayDeploymentStackName }}"
+    region:  "{{ awsRegion }}"
+  register: apiGatewayStackStatus
+
+- name: Try to get data about CloudFormation stack {{ lambdaDeploymentStackName }}
+  cloudformation_facts:
+    stack_name: "{{ lambdaDeploymentStackName }}"
+    region:  "{{ awsRegion }}"
+  register: lambdaStackStatus

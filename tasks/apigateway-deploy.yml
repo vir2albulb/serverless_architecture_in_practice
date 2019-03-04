@@ -1,0 +1,99 @@
+---
+- name: Register AWS Lambda code to upload
+  set_fact:
+    getStudentTestsCode: "lambda-get-student-tests.py"
+    getStudentTestCode: "lambda-get-student-test.py"
+    uploadStudentTestCode: "lambda-upload-student-test.py"
+
+- name: Create temporary directory to create deployment bundles
+  tempfile:
+    state: directory
+    suffix: lambdaCodes
+  register: codesTmpDir
+
+- name: Register temporary directory path and archive names
+  set_fact:
+    tmpDir: "{{ codesTmpDir.path }}"
+    getStudentTestsArchive: "{{ getStudentTestsCode.split('.')[0] }}.zip"
+    getStudentTestArchive: "{{ getStudentTestCode.split('.')[0] }}.zip"
+    uploadStudentTestArchive: "{{ uploadStudentTestCode.split('.')[0] }}.zip"
+
+- name: Create ZIP archive | {{ getStudentTestsCode }}
+  archive:
+    path: "{{ baseLambdaPath }}/{{ getStudentTestsCode }}"
+    dest: "{{ tmpDir }}/{{ getStudentTestsArchive }}"
+    format: zip
+
+- name: Put ZIP archive to S3 bucket | {{ getStudentTestsArchive }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseLambdaPath.split('/')[1] }}/{{ getStudentTestsArchive }}"
+    src: "{{ tmpDir }}/{{ getStudentTestsArchive }}"
+    mode: put
+  register: getStudentTestsS3url
+
+- name: Create ZIP archive | {{ getStudentTestCode }}
+  archive:
+    path: "{{ baseLambdaPath }}/{{ getStudentTestCode }}"
+    dest: "{{ tmpDir }}/{{ getStudentTestArchive }}"
+    format: zip
+
+- name: Put ZIP archive to S3 bucket | {{ getStudentTestArchive }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseLambdaPath.split('/')[1] }}/{{ getStudentTestArchive }}"
+    src: "{{ tmpDir }}/{{ getStudentTestArchive }}"
+    mode: put
+  register: getStudentTestS3url
+
+- name: Create ZIP archive | {{ uploadStudentTestCode }}
+  archive:
+    path: "{{ baseLambdaPath }}/{{ uploadStudentTestCode }}"
+    dest: "{{ tmpDir }}/{{ uploadStudentTestArchive }}"
+    format: zip
+
+- name: Put ZIP archive to S3 bucket | {{ uploadStudentTestCode }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseLambdaPath.split('/')[1] }}/{{ uploadStudentTestArchive }}"
+    src: "{{ tmpDir }}/{{ uploadStudentTestArchive }}"
+    mode: put
+  register: uploadStudentTestS3url
+
+- name: Remove temporary directory
+  file:
+    path: "{{ tmpDir }}"
+    state: absent
+
+- name: Register CloudFormtion template name
+  set_fact:
+    templateName: "apigateway-manage-student-test.template"
+
+- name: Put CloudFormation template to S3 bucket | {{ templateName }}
+  aws_s3:
+    bucket: "{{ cfTemplatesBucketName }}"
+    object: "/{{ baseCfTemplatesPath.split('/')[1] }}/{{ templateName }}"
+    src: "{{ baseCfTemplatesPath }}/{{ templateName }}"
+    mode: put
+  register: cfTemplateS3url
+
+- name: Create AWS CloudFormation stack | {{ apiGatewayDeploymentStackName }}
+  cloudformation:
+    stack_name: "{{ apiGatewayDeploymentStackName }}"
+    state: present
+    region:  "{{ awsRegion }}"
+    template_url: "{{ cfTemplateS3url.url.split(\"?\")[0] }}"
+    termination_protection: yes
+    template_parameters:
+      BucketName: "{{ cfTemplatesBucketName }}"
+      TargetUploadBucketName: "{{ targetUploadBucketPrefix }}"
+      StudentsListS3BucketKey: "{{ studentsListS3BucketKey }}"
+      GetStudentTestsBucketKey: "{{ baseLambdaPath.split('/')[1] }}/{{ getStudentTestsArchive }}"
+      GetStudentTestsHandler: "{{ getStudentTestsCode.split('.')[0] }}.lambda_handler"
+      GetStudentTestBucketKey: "{{ baseLambdaPath.split('/')[1] }}/{{ getStudentTestArchive }}"
+      GetStudentTestHandler: "{{ getStudentTestCode.split('.')[0] }}.lambda_handler"
+      UploadStudentTestBucketKey: "{{ baseLambdaPath.split('/')[1] }}/{{ uploadStudentTestArchive }}"
+      UploadStudentTestHandler: "{{ uploadStudentTestCode.split('.')[0] }}.lambda_handler"
+    tags:
+      Stack: "{{ templateName.split('.')[0] | lower }}"
+      Service: "{{ templateName.split('-')[0] }}"

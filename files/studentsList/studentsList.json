@@ -1,0 +1,18 @@
+[
+  {
+    "student_id": "student01",
+    "email": "student01@makemycloud.pl"
+  },
+  {
+    "student_id": "student02",
+    "email": "student02@makemycloud.pl"
+  },
+  {
+    "student_id": "student03",
+    "email": "student03@makemycloud.pl"
+  },
+  {
+    "student_id": "student04",
+    "email": "student04@makemycloud.pl"
+  }
+]
