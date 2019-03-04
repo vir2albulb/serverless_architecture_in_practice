@@ -24,7 +24,7 @@ Playbook requires to initialize tools or environment variables to work with:
 
 ```bash
 # Run awscli to setup default AWS credentials
-$ awscli configure
+$ aws configure
 ```
 
 ## Plabyook variables
