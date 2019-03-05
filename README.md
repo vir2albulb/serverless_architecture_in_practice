@@ -1,4 +1,4 @@
-# Deploy Serverless architecture with Ansible and AWS
+# Serverless architecture with Ansible and AWS
 
 Repository contains Ansible playbook to deploy real example of AWS API Gateway
 and AWS Lambda. Playbook deploys application to manage students subjects
@@ -54,7 +54,7 @@ $ ./update-subjects-or-students.sh
 To remove stacks and AWS S3 buckets use below command.
 
 ```bash
-# Run remove-api-gateway.sh script to remove setup
+# Run remove-api-gateway.sh script to remove deployment
 $ ./remove-api-gateway.sh
 ```
 

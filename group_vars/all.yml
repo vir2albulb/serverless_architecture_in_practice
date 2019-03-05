@@ -7,6 +7,6 @@ questionsS3BucketKey: questions.json
 questionsKeyS3BucketKey: questionsKey.json
 studentAnswersS3BucketKey: testResult.json
 studentScoreS3BucketKey: score.json
-emailSender: no-reply@examplemail.com
-trainerEmail: trainer@examplemail.com
+emailSender: jakub.marciniak@makemycloud.eu
+trainerEmail: jakub.marciniak@makemycloud.eu
 sesRegion: eu-west-1

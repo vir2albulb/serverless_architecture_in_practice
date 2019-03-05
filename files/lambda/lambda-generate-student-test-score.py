@@ -74,7 +74,7 @@ tr:nth-child(even) {
     if toStudent:
         body += """\
 Your score is: {score}
-""".format(score)
+""".format(score=score)
 
     else:
 
@@ -105,7 +105,6 @@ Your score is: {score}
 
             body += """\
 </table>
-<br>
 """
 
         if [student for student in list if student['score']=='no' ]:
@@ -121,7 +120,7 @@ Your score is: {score}
   </tr>
 """
             for student in list:
-                if student['score'] != 'no':
+                if student['score'] == 'no':
                     body += """\
 <tr>
 <td>{subjectName}</td>
@@ -133,14 +132,14 @@ Your score is: {score}
 
             body + """\
 </table>
+<br><br>
 """
 
     body += """\
-
 <br><br>
 <table class='footprint'>
 <tr>
-<td>Student Trainingss - Cloud Notification System</td>
+<td>Student Trainings - Cloud Notification System</td>
 </tr>
 </table>
 <br>
@@ -168,7 +167,7 @@ def send_mail(region, fromAddress, toAddress, message):
         try:
             response = sesClient.send_raw_email(
                 Source=fromAddress,
-                Destinations=toAddress,
+                Destinations=[toAddress],
                 RawMessage={
                     'Data': message
                 }
@@ -346,6 +345,7 @@ def generate_scores(bucket, testsList, questionsKey, studentsList, studentAnswer
         for student in studentsList:
 
             score = "no"
+            scoreExists = False
             studentId = student['student_id']
             studentEmail = student['email']
             studentResultExists = check_if_key_exists(bucket=bucket, \
@@ -366,10 +366,13 @@ def generate_scores(bucket, testsList, questionsKey, studentsList, studentAnswer
                                 data={"score": score}):
                         logger.info(f'Subject: {subjectName}, test: {testId}, '\
                                     f'student: {studentId} - score saved')
+                else:
+                    None
             else:
                 None
-            trainerListToSend.append({"studentId": studentId, \
-            "subjectName": subjectName, "testId": testId, "score": score})
+            if not scoreExists:
+                trainerListToSend.append({"studentId": studentId, \
+                "subjectName": subjectName, "testId": testId, "score": score})
 
     return trainerListToSend, studentsListToSend
 
@@ -396,7 +399,7 @@ def lambda_handler(event, context):
         testsList = get_list_of_tests(bucket=bucketName, \
                                       questionsKey=questionsKey)
         if testsList:
-            trainerEmail, studentsNotification = generate_scores(\
+            trainerEmailBody, studentsNotification = generate_scores(\
             bucket=bucketName, testsList=testsList, \
             questionsKey=questionsKey, studentsList=studentsList, \
             studentAnswersKey=studentAnswersKey, scoreKey=scoreKey)
@@ -413,18 +416,18 @@ def lambda_handler(event, context):
                 del mailBody, subject, message
 
             # Mail to trainer
-            mailBody = get_mail_body(list=trainerEmail)
-            subject = f'[bucketName] {mainSubject}'
+            mailBody = get_mail_body(list=trainerEmailBody)
+            subject = f'[{bucketName}] {mainSubject}'
             message = mime_email(subject=subject, fromAddress=senderEmail, \
                 toAddress=trainerEmail, htmlMessage=mailBody)
             send_mail(region=sesRegion, fromAddress=senderEmail, \
                 toAddress=trainerEmail, message=message)
             del mailBody, subject, message
         else:
-            logger.info('Test lists if empty')    
+            logger.info('Test lists if empty')
     else:
         logger.info('Please provide environment variables for bucket name, ' \
                     'SES region and email sender')
-    del report, bucketName, sesRegion, senderEmail, trainerEmail, mainSubject
+    del bucketName, sesRegion, senderEmail, trainerEmail, mainSubject
 
     logger.info('====== lambda-generate-student-test-score completed ======')

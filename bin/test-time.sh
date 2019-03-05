@@ -10,8 +10,8 @@
 ##==============================================================================
 
 echo '
-_______        _     _   _
-|__   __|      | |   | | (_)
+ _______       _     _   _
+|__   __|     | |   | | (_)
   | | ___  ___| |_  | |_ _ _ __ ___   ___
   | |/ _ \/ __| __| | __| | `_ ` _ \ / _ \
   | |  __/\__ \ |_  | |_| | | | | | |  __/
@@ -163,7 +163,6 @@ if [ -n "${testsList}" ]; then
   response=$(curl -s -XPOST \
             -d '{"subjectName":"'${subjectName}'","testId":"'${userTestId}'","studentId":"'${studentId}'","testResult":'${userAnswers}'}' \
             -H "x-api-key: ${apiKey}" ${apiUrl}/test);
-  echo $response
 
   echo "-------------------- [TEST UPLOAD] ---------------------";
   if (( $(echo ${response} | jq -r '.code') == 200 )); then
